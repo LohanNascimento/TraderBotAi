@@ -4,14 +4,36 @@ import pandas as pd
 import json
 from config.config import load_config
 from live_trading.mt5_trader import get_lot_limits
-import shap
+# Removido shap por enquanto, pois é específico para modelos scikit-learn.
+# Para LSTMs, alternativas como LIME ou Captum (PyTorch) ou tf-explain (TF) seriam necessárias.
+# import shap
+
+# Importa o nosso novo wrapper LSTM
+from models.market_analysis.lstm_model_wrapper import LSTMModelWrapper
 
 # Carrega configuração
 cfg = load_config()
 
 # Carregamento dos modelos usando configuração
 try:
-    market_model = joblib.load(cfg["model_paths"]["market_analysis"])
+    # Carregar o LSTM Wrapper
+    lstm_model_path = cfg["model_paths"]["lstm_market_model"]
+    lstm_scaler_path = cfg["model_paths"]["lstm_market_scaler"]
+
+    # Parâmetros do wrapper podem vir da config ou usar defaults
+    lstm_params = cfg.get("lstm_wrapper_params", {})
+    timesteps = lstm_params.get("timesteps", 20) # Default no wrapper é 20
+    expected_features_lstm = lstm_params.get("expected_features", None) # Default no wrapper é uma lista específica
+
+    # Instanciar o wrapper LSTM como o novo 'market_model'
+    market_model = LSTMModelWrapper(
+        model_path=lstm_model_path,
+        scaler_path=lstm_scaler_path,
+        timesteps=timesteps,
+        expected_features=expected_features_lstm
+    )
+    print(f"✅ Modelo de Análise de Mercado (LSTM Wrapper) carregado.")
+
     risk_action_model = joblib.load(cfg["model_paths"]["risk_action"])
     risk_level_model = joblib.load(cfg["model_paths"]["risk_level"])
     position_size_model = joblib.load(cfg["model_paths"]["position_size"])
@@ -19,10 +41,10 @@ try:
     take_profit_model = joblib.load(cfg["model_paths"]["take_profit"])
     exec_model = joblib.load(cfg["model_paths"]["strategy_exec"])
     label_map = joblib.load(cfg["model_paths"]["exec_labels"])
-    print("✅ Modelos carregados com sucesso")
+    print("✅ Modelos de Risco e Execução carregados com sucesso.")
 except Exception as e:
     print(f"❌ Erro ao carregar modelos: {e}")
-    print("⚠️ Certifique-se de que os modelos foram treinados com dados MT5")
+    print("⚠️ Verifique os caminhos dos modelos e a configuração.")
     raise
 
 def _calculate_trend_type(market: dict, threshold=0.001):
@@ -54,48 +76,32 @@ def run_autonomous_decision(market: dict, state: dict):
 
     atr = market.get("atr", 0)
     if not np.isfinite(atr) or atr > 1e4:
-        atr = 0.0
+        atr = 0.0 # Evita ATRs inválidos que podem quebrar a normalização ou o modelo
 
-    # Features para modelo de mercado (adaptadas para MT5)
-    market_features = {
-        "open": market["open"],
-        "high": market["high"],
-        "low": market["low"],
-        "close": market["close"],
-        "tick_volume": market.get("tick_volume", market.get("volume", 1000)),
-        "ema_20": market["ema_20"],
-        "ema_50": market["ema_50"],
-        "macd": market["macd"],
-        "rsi": market["rsi"],
-        "stoch_k": market["stoch_k"],
-        "atr": atr,
-        "obv": market.get("obv", 0),
-        "volume_sma_20": market.get("volume_sma_20", market.get("tick_volume", market.get("volume", 1000))),
-        "volatility_stop": market.get("volatility_stop", 0),
-        "volatility_score": market.get("volatility_score", atr / market["close"] if market["close"] > 0 else 0),
-        "spread_pct": market["spread_pct"]
-    }
+    # O dicionário 'market' já contém as features que o LSTMModelWrapper espera.
+    # O wrapper é responsável por selecionar as 'expected_features' e formatá-las.
+    # Precisamos passar o símbolo do ativo para o wrapper.
+    current_symbol = state.get('symbol', market.get('symbol', 'DEFAULT_LSTM_SYMBOL'))
+    # DEFAULT_LSTM_SYMBOL é um fallback se nenhum símbolo for encontrado,
+    # mas o ideal é que 'symbol' sempre esteja presente no estado ou nos dados de mercado.
+
+    # O LSTMModelWrapper.predict() espera um dicionário de dados de mercado e o símbolo.
+    # As features são selecionadas e pré-processadas dentro do wrapper.
+    signal, confidence = market_model.predict(market, symbol=current_symbol)
+    signal = int(signal)
+    confidence = float(confidence)
     
-
-    market_input = pd.DataFrame([market_features])
-
-    signal = int(market_model.predict(market_input)[0])
-    confidence = float(market_model.predict_proba(market_input).max(axis=1)[0])
-
-    # --- SHAP: explicabilidade do modelo de mercado ---
-    try:
-        explainer = shap.Explainer(market_model)
-        shap_values = explainer(market_input)
-        feature_importances = dict(zip(market_input.columns, shap_values.values[0]))
-        sorted_features = sorted(feature_importances.items(), key=lambda x: abs(x[1]), reverse=True)
-        print("\n[SHAP] Principais fatores para decisão do modelo de mercado:")
-        for feat, val in sorted_features[:5]:
-            print(f"  {feat}: {val:.4f}")
-    except Exception as e:
-        print(f"[SHAP] Falha ao calcular explicações: {e}")
+    # --- SHAP: Explicabilidade ---
+    # A explicabilidade com SHAP para modelos scikit-learn (como o RandomForest anterior)
+    # não se aplica diretamente a modelos Keras/TensorFlow como o LSTM.
+    # Seriam necessárias outras bibliotecas/técnicas (ex: LIME, Captum, tf-explain, Integrated Gradients).
+    # Por enquanto, vamos remover a seção SHAP ou comentá-la.
+    # print("[INFO] Explicabilidade SHAP não implementada para o modelo LSTM nesta versão.")
     # --- fim SHAP ---
 
+
     # Features para modelo de risco (adaptadas para MT5)
+    # Estas features permanecem as mesmas, pois os modelos de risco não mudaram.
     risk_features = {
         "capital": adjusted_capital,
         "in_position": int(state.get("in_position", False)),

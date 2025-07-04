@@ -11,7 +11,9 @@ general:
   broker: MT5
 
 model_paths:
-  market_analysis: models/market_analysis/model/model_market.pkl
+  # market_analysis: models/market_analysis/model/model_market.pkl # Comentado para usar LSTM
+  lstm_market_model: "models/market_analysis/model/lstm_market_model.h5"
+  lstm_market_scaler: "models/market_analysis/model/lstm_scaler.pkl"
   risk_action: models/risk_management/model/risk_action_model.pkl
   risk_level: models/risk_management/model/risk_level_model.pkl
   position_size: models/risk_management/model/position_size_model.pkl
@@ -19,6 +21,14 @@ model_paths:
   take_profit: models/risk_management/model/take_profit_model.pkl
   strategy_exec: models/strategy_execution/model/exec_model.pkl
   exec_labels: models/strategy_execution/model/exec_label_map.pkl
+
+# (Opcional) Parâmetros para o LSTMModelWrapper
+# Se não definidos aqui, o wrapper usará seus valores default.
+lstm_wrapper_params:
+  timesteps: 20  # Deve corresponder ao treinamento do LSTM
+  # expected_features: null # Se null, o wrapper usa sua lista default.
+                            # Caso contrário, forneça a lista exata de features que o LSTM espera, na ordem correta.
+                            # Exemplo: ['open', 'high', 'low', 'close', 'tick_volume', 'ema_20', ...]
 
 trading:
   initial_capital: 10000

@@ -14,12 +14,50 @@ models/
 └── market_analysis/
     ├── train_market_model.py         # Treinamento do modelo
     ├── model_market.pkl              # Modelo treinado (output)
-    ├── market_dataset.py             # Carregamento e rotulagem do dataset
+    ├── market_dataset.py             # Carregamento e rotulagem do dataset (Random Forest)
+    ├── lstm_market_dataset.py        # Carregamento e preparação de sequências para LSTM
+    ├── train_lstm_market_model.py    # Treinamento ou carregamento de modelo LSTM
     └── evaluate_market_model.py      # Métricas de validação (F1, confusion, etc.)
 
-🧪 Como rodar:
+🧪 Como rodar (Modelo RandomForest Padrão):
 
 python models/market_analysis/train_market_model.py
+
+Esse comando irá:
+Treinar um Random Forest com os dados preparados (de `market_dataset.py`).
+Imprimir métricas e salvar o modelo em `.pkl`.
+
+🧠 Como usar um Modelo LSTM Pré-Treinado para Análise de Mercado:
+
+1.  **Coloque seu modelo LSTM e scaler nos locais corretos:**
+    *   Modelo LSTM (ex: `.h5`): `models/market_analysis/model/lstm_market_model.h5`
+    *   Scaler (ex: `MinMaxScaler` salvo com `joblib` como `.pkl`): `models/market_analysis/model/lstm_scaler.pkl`
+
+2.  **Atualize a configuração `config/settings.yaml`:**
+    ```yaml
+    model_paths:
+      # Comente ou remova a linha do market_analysis RandomForest
+      # market_analysis: "models/market_analysis/model/model_market.pkl"
+
+      # Adicione os caminhos para o seu modelo LSTM e scaler
+      lstm_market_model: "models/market_analysis/model/lstm_market_model.h5"
+      lstm_market_scaler: "models/market_analysis/model/lstm_scaler.pkl"
+
+      # ... outros modelos de risco e execução ...
+
+    # (Opcional) Configure os parâmetros do LSTM Wrapper
+    lstm_wrapper_params:
+      timesteps: 20  # Ajuste para o número de timesteps que seu LSTM espera
+      # expected_features: ['open', 'high', 'low', 'close', ...] # Descomente e liste se for diferente do default no wrapper
+    ```
+
+3.  **Execute o bot:**
+    O `core/logic.py` irá carregar automaticamente o `LSTMModelWrapper` com base nessas configurações.
+
+4.  **(Opcional) Treinar/Re-treinar um modelo LSTM usando os scripts fornecidos:**
+    *   Execute `python models/market_analysis/train_lstm_market_model.py`.
+    *   Você pode ajustar `TRAIN_NEW = True` no script para treinar um novo modelo ou `TRAIN_NEW = False` para tentar carregar um modelo existente (definido por `MODEL_SAVE_PATH` no script).
+    *   O script `lstm_market_dataset.py` é usado por `train_lstm_market_model.py` para preparar os dados.
 
 Esse comando irá:
 
