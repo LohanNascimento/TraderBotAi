@@ -1,0 +1,40 @@
+general:
+  mode: live  # opções: backtest, live
+  symbols:
+  - EURUSD
+  - XAUUSD
+  - USDJPY
+  - EURJPY
+  - USDCAD
+  timeframe: M5
+  data_path: data/processed/market_features_m15.parquet
+  broker: MT5
+
+model_paths:
+  market_analysis: models/market_analysis/model/model_market.pkl
+  risk_action: models/risk_management/model/risk_action_model.pkl
+  risk_level: models/risk_management/model/risk_level_model.pkl
+  position_size: models/risk_management/model/position_size_model.pkl
+  stop_loss: models/risk_management/model/stop_loss_model.pkl
+  take_profit: models/risk_management/model/take_profit_model.pkl
+  strategy_exec: models/strategy_execution/model/exec_model.pkl
+  exec_labels: models/strategy_execution/model/exec_label_map.pkl
+
+trading:
+  initial_capital: 10000
+  max_drawdown: 0.20
+  max_position_size_pct: 0.1
+  min_confidence: 0.6
+  stop_loss_pct: 0.02
+  take_profit_pct: 0.04
+
+mt5:
+  account: 5037599678
+  password: "Fm@zS7Yj"
+  server: "MetaQuotes-Demo"
+  symbol_prefix: ""
+  symbol_suffix: ""
+  lot_size: 0.01
+  max_spread: 0.0010
+
+

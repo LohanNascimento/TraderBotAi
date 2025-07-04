@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-100 text-gray-800">
+<head>
+  <meta charset="UTF-8">
+  <title>Crypto Trader Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/alpinejs" defer></script>
+</head>
+<body class="p-6" x-data="dashboard()" x-init="load(); setInterval(load, 5000)">
+  <div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold mb-4">🤖 Crypto Trader AI - Monitor</h1>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white p-4 rounded-xl shadow">
+        <h2 class="text-xl font-semibold mb-2">📉 Risco</h2>
+        <p><strong>Capital:</strong> $<span x-text="risk.capital?.toFixed(2)"></span></p>
+        <p><strong>Drawdown:</strong> <span x-text="(risk.drawdown * 100).toFixed(2) + '%' "></span></p>
+        <p><strong>Perdas consecutivas:</strong> <span x-text="risk.recent_losses"></span></p>
+        <p><strong>Cooldown:</strong> <span x-text="risk.cooldown_active ? '🕒 Ativo' : '✔ Não'"></span></p>
+      </div>
+      
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow mt-6">
+      <h2 class="text-xl font-semibold mb-2">📋 Trades em andamento</h2>
+      <template x-if="open_trades.length === 0">
+        <p class="text-gray-500">Nenhuma operação em andamento.</p>
+      </template>
+      <template x-if="open_trades.length > 0">
+        <table class="min-w-full text-sm mt-2">
+          <thead>
+            <tr class="border-b">
+              <th class="text-left">Ativo</th>
+              <th class="text-left">Entrada</th>
+              <th class="text-left">Tempo</th>
+              <th class="text-left">Lucro (%)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="trade in open_trades" :key="trade.symbol">
+              <tr>
+                <td x-text="trade.symbol"></td>
+                <td x-text="trade.entry_price?.toFixed(5)"></td>
+                <td x-text="formatTime(trade.time_in_trade)"></td>
+                <td x-text="(trade.profit_pct * 100).toFixed(2) + '%' "></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </template>
+    </div>
+
+    <p class="text-sm text-gray-400 mt-6">Atualiza a cada 5 segundos</p>
+
+    <div class="bg-white p-4 rounded-xl shadow mt-6">
+      <h2 class="text-xl font-semibold mb-2">🧠 Última decisão dos modelos</h2>
+      <p><strong>Ação:</strong> <span x-text="decision.final_decision"></span></p>
+      <p><strong>Confiança:</strong> <span x-text="(decision.confidence * 100).toFixed(2) + '%' "></span></p>
+      <p><strong>Razão:</strong> <span x-text="decision.reason || '-' "></span></p>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow mt-6">
+      <h2 class="text-xl font-semibold mb-2">📋 Posições por ativo</h2>
+      <template x-for="(pos, symbol) in Object.entries(positions)" :key="symbol">
+        <div class="mb-4 border-b pb-2">
+          <h3 class="font-bold">{{ symbol }}</h3>
+          <p><strong>Em operação:</strong> <span x-text="pos.in_position ? '✅ Sim' : '❌ Não'"></span></p>
+          <p><strong>Preço de entrada:</strong> $<span x-text="pos.entry_price?.toFixed(5)"></span></p>
+          <p><strong>Tempo na posição:</strong> <span x-text="formatTime(pos.time_in_trade)"></span></p>
+          <p><strong>Lucro parcial:</strong> <span x-text="(pos.profit_pct * 100).toFixed(2) + '%' "></span></p>
+          <template x-if="lot_limits[symbol]">
+            <p class="text-xs text-gray-500 mt-1">Lote: min <span x-text="lot_limits[symbol].min"></span> | max <span x-text="lot_limits[symbol].max"></span> | step <span x-text="lot_limits[symbol].step"></span></p>
+          </template>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script>
+    function formatTime(minutes) {
+      if (!minutes || isNaN(minutes)) return '-';
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      if (h > 0) return `${h}h ${m}min`;
+      return `${m}min`;
+    }
+    function dashboard() {
+      return {
+        positions: {},
+        open_trades: [],
+        risk: {},
+        decision: {},
+        lot_limits: {},
+        formatTime,
+        async load() {
+          const res = await fetch('/data');
+          const json = await res.json();
+          this.positions = json.positions;
+          this.open_trades = json.open_trades;
+          this.risk = json.risk;
+          this.decision = json.decision;
+          this.lot_limits = json.lot_limits;
+        }
+      }
+    }
+  </script>
+</body>
+</html>
